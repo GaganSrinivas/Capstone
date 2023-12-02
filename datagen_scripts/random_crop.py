@@ -2,93 +2,56 @@ import os
 from PIL import Image
 import numpy as np
 
-
 crop_size = 200
-scr_path = '../raw-img/'
+scr_path = 'D:\Test\Sharing\Jigsaw-Solver\datagen_scripts/celeb/'
 
-folder = os.listdir(scr_path)
-
-
-# first split images to train test and validation directory
-
-os.system("mkdir -p {}".format('test'))
-os.system("mkdir -p {}".format('valid'))
-os.system("mkdir -p {}".format('train'))
+# Create directories for train, valid, and test
+os.makedirs(os.path.join(scr_path, 'test'), exist_ok=True)
+os.makedirs(os.path.join(scr_path, 'valid'), exist_ok=True)
+os.makedirs(os.path.join(scr_path, 'train'), exist_ok=True)
 
 ind = 0
-for i in folder:
-
-    for j in os.listdir(scr_path + i):
-
-        if ind%12 == 0 :
-
-            os.system('mv {} {}'.format(scr_path + '/' + i + '/' + j, 'test'))
-
-        elif ind%51 == 0 :
-
-            os.system('mv {} {}'.format(scr_path + '/' + i + '/' + j, 'valid'))
-
+for filename in os.listdir(scr_path):
+    if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        if ind % 12 == 0:
+            os.rename(os.path.join(scr_path, filename),
+                      os.path.join(scr_path, 'test', filename))
+        elif ind % 51 == 0:
+            os.rename(os.path.join(scr_path, filename),
+                      os.path.join(scr_path, 'valid', filename))
         else:
-
-            os.system('mv {} {}'.format(scr_path + '/' + i + '/' + j, 'train'))
-
+            os.rename(os.path.join(scr_path, filename),
+                      os.path.join(scr_path, 'train', filename))
         ind += 1
 
+# Now center randomly crop images.
+# Create directories for cropped images
+os.makedirs(os.path.join(scr_path, 'test_crop'), exist_ok=True)
+os.makedirs(os.path.join(scr_path, 'valid_crop'), exist_ok=True)
+os.makedirs(os.path.join(scr_path, 'train_crop'), exist_ok=True)
 
-# now center randomly crop images.
-# first split images to train test and validation directory
-
-
-os.system("mkdir -p {}".format('test_crop'))
-os.system("mkdir -p {}".format('valid_crop'))
-os.system("mkdir -p {}".format('train_crop'))
-
-for i in ['test', 'valid', 'train']:
-
+for subset in ['test', 'valid', 'train']:
     ind = 0
-    loop = 1
-
-    if i == 'train':
-        loop = 1      # epoch to augment the data
+    loop = 1 if subset == 'train' else 1  # epoch to augment the data
 
     for _ in range(loop):
+        for filename in os.listdir(os.path.join(scr_path, subset)):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                im = Image.open(os.path.join(scr_path, subset, filename))
+                width, height = im.size
 
-        for j in os.listdir(i):
+                top = np.random.randint(0, max(0, height - crop_size + 1))
+                left = np.random.randint(0, max(0, width - crop_size + 1))
 
-            if j.split('.')[-1].lower() not in ['jpg', 'png', 'jpeg']:
-                continue
-
-            im = Image.open(i + '/' + j)
-
-            width, height = im.size
-
-            if height <= crop_size:
-                top = 0
-                bottom = height
-
-            else:
-                top = np.random.randint(0, height-crop_size)
                 bottom = top + crop_size
-
-            if width <= crop_size:
-                left = 0
-                right = width
-
-            else:
-                left = np.random.randint(0, width-crop_size)
                 right = left + crop_size
 
-            im = im.crop((left, top, right, bottom))
-            im = im.resize((crop_size, crop_size))
+                im_cropped = im.crop((left, top, right, bottom))
+                im_cropped.save(os.path.join(
+                    scr_path, '{}_crop'.format(subset), '{}.jpg'.format(ind)))
 
-            try:
-                im.save('{}_crop/{}.jpg'.format(i,ind))
-            except:
-                pass
+                ind += 1
 
-            ind += 1
-
-
-os.system("rm -r {}".format('test'))
-os.system("rm -r {}".format('valid'))
-os.system("rm -r {}".format('train'))
+# Clean up original folders
+for subset in ['test', 'valid', 'train']:
+    os.system("rm -r {}".format(os.path.join(scr_path, subset)))
